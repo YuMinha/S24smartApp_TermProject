@@ -14,9 +14,4 @@ interface SongApi {
         @Query("apikey") apiKey: String = SongApiConfig.API_KEY
     ): List<Album>
 
-    @GET("songs")
-    suspend fun getSongsByAlbum(
-        @Query("album_id") albumId: String,
-        @Query("apikey") apiKey: String = SongApiConfig.API_KEY
-    ): List<Song>
 }

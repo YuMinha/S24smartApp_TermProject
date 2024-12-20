@@ -40,7 +40,11 @@ android {
 }
 
 dependencies {
-
+    // NOTE: AsyncImage 사용하기 위해 추가
+    //implementation("io.coil-kt.coil3:coil-compose:3.0.4")
+    implementation(libs.coil.compose)
+    //implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
+    implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.runtime.livedata)
     implementation(libs.retrofit)

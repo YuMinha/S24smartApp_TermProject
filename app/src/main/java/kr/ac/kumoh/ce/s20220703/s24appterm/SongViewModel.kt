@@ -38,39 +38,30 @@ class SongViewModel : ViewModel() {
         fetchAlbums()
     }
 
-    // 모든 노래 가져오기
-    private fun fetchSongs() {
-        viewModelScope.launch {
-            try {
-                val response = songApi.getSongs()
-                _songList.value = response
-            } catch (e: Exception) {
-                Log.e("fetchSongs()", e.toString())
-            }
-        }
-    }
-
-    // 모든 앨범 가져오기
     private fun fetchAlbums() {
         viewModelScope.launch {
             try {
-                val response = songApi.getAlbums()
+                val response = songApi.getAlbums() // 전체 앨범 데이터 가져오기
                 _albumList.value = response
             } catch (e: Exception) {
-                Log.e("fetchAlbums()", e.toString())
+                Log.e("fetchAlbums", e.toString())
             }
         }
     }
 
-    // 특정 앨범의 노래 가져오기
-    fun fetchSongsByAlbum(albumId: String) {
+    private fun fetchSongs() {
         viewModelScope.launch {
             try {
-                val response = songApi.getSongsByAlbum(albumId)
-                _songsByAlbum.value = response
+                val response = songApi.getSongs() // 전체 노래 데이터 가져오기
+                _songList.value = response
             } catch (e: Exception) {
-                Log.e("fetchSongsByAlbum()", e.toString())
+                Log.e("fetchSongs", e.toString())
             }
         }
+    }
+
+    fun filterSongsByAlbum(albumId: String) {
+        val allSongs = _songList.value ?: emptyList()
+        _songsByAlbum.value = allSongs.filter { it.albumId == albumId }
     }
 }
