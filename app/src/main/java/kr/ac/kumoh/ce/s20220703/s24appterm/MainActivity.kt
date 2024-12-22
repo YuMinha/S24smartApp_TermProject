@@ -22,11 +22,29 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DrawerState
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -35,6 +53,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -42,7 +61,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,86 +83,190 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(viewModel: SongViewModel = viewModel()) {
     val songList by viewModel.songList.observeAsState(emptyList())
+    val albumList by viewModel.albumList.observeAsState(emptyList())
 
-    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-        SongList(
-            list = songList,
-            modifier = Modifier.padding(innerPadding)
+    val navController = rememberNavController()
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            DrawerSheet(drawerState){
+                navController.navigate(it){
+                    launchSingleTop = true
+                    popUpTo(it){ inclusive = true }
+                }
+            }
+        },
+        gesturesEnabled = true,
+    ){
+        Scaffold(modifier = Modifier.fillMaxSize(),
+            topBar = {TopBar(drawerState)},
+            bottomBar = {
+                BottomNavigationBar {
+                    navController.navigate(it) {
+                        launchSingleTop = true
+                        popUpTo(it) { inclusive = true }
+                    }
+                }
+            },
+            ) { innerPadding ->
+            NavHost(
+                navController = navController,
+                startDestination = SongScreen.Song.name,
+                modifier = Modifier.padding(innerPadding)
+            ) {
+                composable(route = SongScreen.Song.name) {
+                    SongList() {
+                        navController.navigate(it) {
+                            launchSingleTop = true
+                            popUpTo(it) { inclusive = true }
+                        }
+                    }
+                }
+                composable(route = SongScreen.Album.name) {
+                    AlbumList() {
+                        navController.navigate(it) {
+                            launchSingleTop = true
+                            popUpTo(it) { inclusive = true }
+                        }
+                    }
+                }
+                composable(
+                    route = SongScreen.AlbumDetail.name + "/{id}",
+                    arguments = listOf(navArgument("id") { type = NavType.StringType })
+                ) { backStackEntry ->
+                    val id = backStackEntry.arguments?.getString("id") ?: ""
+                    val album = albumList.find { it.id == id }
+                    if (album != null) {
+                        AlbumDetail(viewModel = viewModel, album = album, onNavigate = { route ->
+                            navController.navigate(route)
+                        })
+                    }
+                }
+
+
+                composable(
+                    route = SongScreen.SongDetail.name + "/{title}",
+                    arguments = listOf(navArgument("title") {
+                        type = NavType.StringType
+                    })
+                ) {
+                    val title = it.arguments?.getString("title") ?: ""
+                    val song = songList.find { song -> song.title == title }
+                    if (song != null)
+                        SongDetail(song)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DrawerSheet(
+    drawerState: DrawerState,
+    onNavigate: (String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+
+    ModalDrawerSheet {
+        NavigationDrawerItem(
+            label = { Text("앨범 리스트") },
+            selected = false,
+            onClick = {
+                onNavigate(SongScreen.Album.name)
+                scope.launch {
+                    drawerState.close()
+                }
+            },
+            icon = {
+                Icon(
+                    Icons.Filled.Face,
+                    contentDescription = "앨범 리스트 아이콘"
+                )
+            }
+        )
+        NavigationDrawerItem(
+            label = { Text("노래 리스트") },
+            selected = false,
+            onClick = {
+                onNavigate(SongScreen.Song.name)
+                scope.launch {
+                    drawerState.close()
+                }
+            },
+            icon = {
+                Icon(
+                    Icons.Filled.Favorite,
+                    contentDescription = "노래 리스트 아이콘"
+                )
+            }
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SongList(list: List<Song>, modifier: Modifier) {
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(horizontal = 8.dp)
-    ) {
-        items(list) { song ->
-            SongItem(song)
-        }
-    }
-}
+fun TopBar(drawerState: DrawerState) {
+    val scope = rememberCoroutineScope()
 
-@Composable
-fun SongItem(song: Song) {
-    var (expanded, setExpanded) = remember { mutableStateOf(false) }
-
-    Card(
-        modifier = Modifier
-            .clickable {
-                setExpanded(!expanded)
-            },
-        elevation = CardDefaults.cardElevation(8.dp),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min)
-                .padding(8.dp)
-        ) {
-            AsyncImage(
-                model = song.image,
-                contentDescription = "노래 이미지 ${song.title}",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(100.dp)
-                    .clip(RoundedCornerShape(percent = 10)),
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceAround
+    CenterAlignedTopAppBar(
+        title = { Text("신용재's 노래들") },
+        navigationIcon = {
+            IconButton(
+                onClick = {
+                    scope.launch {
+                        drawerState.open()
+                    }
+                }
             ) {
-                TextTitle(song.title)
-                TextSinger(song.artist)
-            }
-        }
-        AnimatedVisibility(
-            visible = expanded,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            song.lyrics?.let {
-                Text(
-                    it.replace("\\n", "\n"),
-                    textAlign = TextAlign.Center,
+                Icon(
+                    imageVector = Icons.Default.Menu,
+                    contentDescription = "메뉴 아이콘"
                 )
             }
-        }
-    }
-}
-
-@Composable
-fun TextTitle(title: String) {
-    Text(
-        title,
-        fontSize = 30.sp,
-        lineHeight = 35.sp
+        },
+        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            titleContentColor = MaterialTheme.colorScheme.primary,
+        ),
     )
 }
 
 @Composable
-fun TextSinger(singer: String) {
-    Text(singer, fontSize = 20.sp)
+fun BottomNavigationBar(onNavigate: (String) -> Unit) {
+    NavigationBar {
+        NavigationBarItem(
+            label = {
+                Text("Albums")
+            },
+            icon = {
+                Icon(
+                    Icons.Filled.Face,
+                    contentDescription = "앨범 리스트 아이콘"
+                )
+            },
+            selected = false,
+            onClick = {
+                onNavigate(SongScreen.Album.name)
+            }
+        )
+        NavigationBarItem(
+            label = {
+                Text("Songs")
+            },
+            icon = {
+                Icon(
+                    Icons.Filled.Favorite,
+                    contentDescription = "노래 리스트 아이콘"
+                )
+            },
+            selected = false,
+            onClick = {
+                onNavigate(SongScreen.Song.name)
+            }
+        )
+    }
 }
+
+

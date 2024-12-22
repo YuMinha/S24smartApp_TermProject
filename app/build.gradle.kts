@@ -40,6 +40,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.navigation.compose)
     // NOTE: AsyncImage 사용하기 위해 추가
     //implementation("io.coil-kt.coil3:coil-compose:3.0.4")
     implementation(libs.coil.compose)
